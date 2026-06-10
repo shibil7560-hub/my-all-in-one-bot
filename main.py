@@ -66,6 +66,7 @@ async def ban(ctx, member: discord.Member, *, reason=None):
     await ctx.send(f"{member.mention} has been banned!")
 
 @bot.command()
+@commands.has_permissions(administrator=True)
 async def announce(ctx, *, message_content):
     # Deletes the command message you typed to keep it clean
     await ctx.message.delete()
