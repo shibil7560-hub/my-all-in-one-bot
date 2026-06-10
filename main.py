@@ -70,7 +70,6 @@ if __name__ == "__main__":
     token = os.environ.get("TOKEN")
     bot.run(token)
 @bot.command()
-@commands.has_permissions(administrator=True)
 async def announce(ctx, *, message_content):
     try:
         # Fetches the channel securely using the ID
