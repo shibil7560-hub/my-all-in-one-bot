@@ -70,9 +70,7 @@ if __name__ == "__main__":
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def announce(ctx, *, message_content):
-    # Searches for a channel named 'announcements' in the server
-    channel = discord.utils.get(ctx.guild.text_channels, name="announcements")
-    
+    channel = bot.get_channel(https://discord.com/channels/1513832703479513229/1514260666515591218)
     if channel is None:
         await ctx.send("Please create a text channel named 'announcements' first!")
         return
