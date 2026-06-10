@@ -72,13 +72,12 @@ if __name__ == "__main__":
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def announce(ctx, *, message_content):
-        channel = await bot.fetch_channel(1514260666515591218)
-
+    channel = await bot.fetch_channel(1514260666515591218)
+    
     if channel is None:
         await ctx.send("Please check the channel name in the code!")
         return
 
-    # Sends the message beautifully inside a red Embed box
     embed = discord.Embed(
         title="📢 New Announcement!",
         description=message_content,
