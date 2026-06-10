@@ -71,13 +71,10 @@ if __name__ == "__main__":
     bot.run(token)
 @bot.command()
 async def announce(ctx, *, message_content):
-    try:
-        channel = await bot.fetch_channel(1514260666515591218)
-    except Exception as e:
-        await ctx.send("Could not find the channel! Please check the ID.")
-        print(f"Error fetching channel: {e}")
-        return
-
+    # Deletes the command message you typed to keep it clean
+    await ctx.message.delete()
+    
+    # Creates the beautiful embed box
     embed = discord.Embed(
         title="📢 New Announcement!",
         description=message_content,
@@ -85,6 +82,5 @@ async def announce(ctx, *, message_content):
     )
     embed.set_footer(text=f"Announced by {ctx.author.name}")
     
-    await channel.send(embed=embed)
-    await ctx.send("Announcement sent successfully!")
-
+    # Sends the embed directly to the current channel
+    await ctx.send(embed=embed)
