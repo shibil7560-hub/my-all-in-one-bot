@@ -72,7 +72,7 @@ if __name__ == "__main__":
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def announce(ctx, *, message_content):
-            channel = discord.utils.get(ctx.guild.text_channels, name=("【📢】announcement")
+                channel = bot.get_channel(1514260666515591218)
     if channel is None:
         await ctx.send("Please check the channel name in the code!")
         return
