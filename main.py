@@ -65,10 +65,6 @@ async def ban(ctx, member: discord.Member, *, reason=None):
     await member.ban(reason=reason)
     await ctx.send(f"{member.mention} has been banned!")
 
-if __name__ == "__main__":
-    keep_alive()
-    token = os.environ.get("TOKEN")
-    bot.run(token)
 @bot.command()
 async def announce(ctx, *, message_content):
     # Deletes the command message you typed to keep it clean
@@ -84,3 +80,7 @@ async def announce(ctx, *, message_content):
     
     # Sends the embed directly to the current channel
     await ctx.send(embed=embed)
+if __name__ == "__main__":
+    keep_alive()
+    token = os.environ.get("TOKEN")
+    bot.run(token)
