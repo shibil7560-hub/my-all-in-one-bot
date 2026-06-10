@@ -67,7 +67,7 @@ if __name__ == "__main__":
     keep_alive()
     token = os.environ.get("TOKEN")
     bot.run(token)
-@client.command()
+@bot.command()
 @commands.has_permissions(administrator=True)
 async def announce(ctx, *, message_content):
     # Searches for a channel named 'announcements' in the server
