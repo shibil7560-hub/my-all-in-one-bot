@@ -81,6 +81,54 @@ async def announce(ctx, *, message_content):
     
     # Sends the embed directly to the current channel
     await ctx.send(embed=embed)
+    # --- TICKET SYSTEM WITH BUTTONS ---
+
+class TicketSetupView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None) # Keeps the button active forever
+
+    @discord.ui.button(label="📩 Create Ticket", style=discord.ButtonStyle.green, custom_id="create_ticket_btn")
+    async def create_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        guild = interaction.guild
+        member = interaction.user
+        
+        # Checking if ticket channel already exists for this member
+        existing_channel = discord.utils.get(guild.channels, name=f"ticket-{member.name.lower()}")
+        if existing_channel:
+            await interaction.response.send_message(f"You already have an open ticket: {existing_channel.mention}", ephemeral=True)
+            return
+
+        # Setting permissions: Only the creator and Admins can see it
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            member: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
+            guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True)
+        }
+
+        # Creating the private ticket channel
+        ticket_channel = await guild.create_text_channel(name=f"ticket-{member.name}", overwrites=overwrites)
+        
+        # Sending welcome message inside the new ticket channel
+        embed = discord.Embed(
+            title="🎫 Ticket Created!",
+            description=f"Hello {member.mention},\nOur Support Team/Admins will assist you shortly. Please state your issue here.",
+            color=0x00ff00
+        )
+        await ticket_channel.send(embed=embed)
+        await interaction.response.send_message(f"Ticket created successfully! Go to {ticket_channel.mention}", ephemeral=True)
+
+# Command to send the Ticket Setup Box (Only for Admins)
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def setup_ticket(ctx):
+    await ctx.message.delete()
+    embed = discord.Embed(
+        title="📩 Support Ticket System",
+        description="Click the button below to create a private support ticket and talk to the Admins.",
+        color=0x5865F2
+    )
+    await ctx.send(embed=embed, view=TicketSetupView())
+
 if __name__ == "__main__":
     keep_alive()
     token = os.environ.get("TOKEN")
