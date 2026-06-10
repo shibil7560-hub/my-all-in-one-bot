@@ -81,43 +81,51 @@ async def announce(ctx, *, message_content):
     
     # Sends the embed directly to the current channel
     await ctx.send(embed=embed)
-    # --- TICKET SYSTEM WITH BUTTONS ---
+# --- UPDATED TICKET SYSTEM WITH CLOSE BUTTON ---
+
+class TicketCloseView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="🔒 Close Ticket", style=discord.ButtonStyle.danger, custom_id="close_ticket_btn")
+    async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("This ticket will be deleted in 5 seconds...", ephemeral=False)
+        # Wait for 5 seconds and then delete the channel
+        await asyncio.sleep(5)
+        await interaction.channel.delete()
 
 class TicketSetupView(discord.ui.View):
     def __init__(self):
-        super().__init__(timeout=None) # Keeps the button active forever
+        super().__init__(timeout=None)
 
     @discord.ui.button(label="📩 Create Ticket", style=discord.ButtonStyle.green, custom_id="create_ticket_btn")
     async def create_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
         guild = interaction.guild
         member = interaction.user
         
-        # Checking if ticket channel already exists for this member
         existing_channel = discord.utils.get(guild.channels, name=f"ticket-{member.name.lower()}")
         if existing_channel:
             await interaction.response.send_message(f"You already have an open ticket: {existing_channel.mention}", ephemeral=True)
             return
 
-        # Setting permissions: Only the creator and Admins can see it
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             member: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
             guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True)
         }
 
-        # Creating the private ticket channel
         ticket_channel = await guild.create_text_channel(name=f"ticket-{member.name}", overwrites=overwrites)
         
-        # Sending welcome message inside the new ticket channel
         embed = discord.Embed(
             title="🎫 Ticket Created!",
-            description=f"Hello {member.mention},\nOur Support Team/Admins will assist you shortly. Please state your issue here.",
+            description=f"Hello {member.mention},\nOur Support Team/Admins will assist you shortly. Please state your issue here.\n\nClick the button below to **Close** this ticket.",
             color=0x00ff00
         )
-        await ticket_channel.send(embed=embed)
+        
+        # Here we attach the Close Button to the welcome message inside the new ticket channel
+        await ticket_channel.send(embed=embed, view=TicketCloseView())
         await interaction.response.send_message(f"Ticket created successfully! Go to {ticket_channel.mention}", ephemeral=True)
 
-# Command to send the Ticket Setup Box (Only for Admins)
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def setup_ticket(ctx):
