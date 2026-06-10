@@ -67,3 +67,28 @@ if __name__ == "__main__":
     keep_alive()
     token = os.environ.get("TOKEN")
     bot.run(token)
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def announce(ctx, *, message_content):
+    # Searches for a channel named 'announcements' in the server
+    channel = discord.utils.get(ctx.guild.text_channels, name="announcements")
+    
+    if channel is None:
+        await ctx.send("Please create a text channel named 'announcements' first!")
+        return
+
+    # Sends the message beautifully inside a red Embed box
+    embed = discord.Embed(
+        title="📢 New Announcement!",
+        description=message_content,
+        color=0xff0000 # Red Color
+    )
+    embed.set_footer(text=f"Announced by {ctx.author.name}")
+    
+    await channel.send(embed=embed)
+    await ctx.send("Announcement sent successfully!")
+
+@announce.error
+async def announce_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.send("You do not have permission to use this command!")
