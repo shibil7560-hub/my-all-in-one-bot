@@ -107,11 +107,11 @@ class TicketSetupView(discord.ui.View):
             await interaction.response.send_message(f"You already have an open ticket: {existing_channel.mention}", ephemeral=True)
             return
 
-        overwrites = {
+               overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             member: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
-            guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True)
-        }
+            guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_channels=True)
+               }
 
         ticket_channel = await guild.create_text_channel(name=f"ticket-{member.name}", overwrites=overwrites)
         
