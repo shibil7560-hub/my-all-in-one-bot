@@ -15,18 +15,26 @@ def run():
 def keep_alive():
     t = Thread(target=run)
     t.start()
+
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 intents.guilds = True
+
+# We keep command_prefix just as a backup, but we will use Slash Commands
 bot = commands.Bot(command_prefix="!", intents=intents)
-
-
 
 @bot.event
 async def on_ready():
     await bot.change_presence(activity=discord.Game(name="Managing Server! 👑"))
     print(f'{bot.user.name} is ready!')
+    
+    # CRITICAL: This connects and syncs your Slash Commands with Discord
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} command(s) successfully!")
+    except Exception as e:
+        print(f"Failed to sync commands: {e}")
 
 @bot.event
 async def on_member_join(member):
@@ -34,54 +42,61 @@ async def on_member_join(member):
     if channel:
         await channel.send(f"Welcome {member.mention} to our server! 🎉")
 
-@bot.command()
-async def info(ctx):
-    embed = discord.Embed(title="All in One Bot", description="Server Management Bot Commands:", color=0x00ff00)
-    embed.add_field(name="!ping", value="Check if the bot is online", inline=False)
-    embed.add_field(name="!kick @user", value="Kick a user (Admin Only)", inline=False)
-    embed.add_field(name="!ban @user", value="Ban a user (Admin Only)", inline=False)
-    embed.add_field(name="!clear 10", value="Delete multiple messages", inline=False)
-    await ctx.send(embed=embed)
+# --- 1. SLASH COMMAND: INFO ---
+@bot.tree.command(name="info", description="View all available bot commands")
+async def info(interaction: discord.Interaction):
+    embed = discord.Embed(title="All in One Bot", description="Server Management Bot Slash Commands:", color=0x00ff00)
+    embed.add_field(name="/info", value="Check all available commands", inline=False)
+    embed.add_field(name="/ping", value="Check if the bot is online", inline=False)
+    embed.add_field(name="/clear [amount]", value="Delete multiple messages (Admin Only)", inline=False)
+    embed.add_field(name="/kick [user] [reason]", value="Kick a user (Admin Only)", inline=False)
+    embed.add_field(name="/ban [user] [reason]", value="Ban a user (Admin Only)", inline=False)
+    embed.add_field(name="/announce [message]", value="Create a beautiful announcement box (Admin Only)", inline=False)
+    embed.add_field(name="/setup_ticket", value="Setup the private support ticket system (Admin Only)", inline=False)
+    await interaction.response.send_message(embed=embed)
 
-@bot.command()
-async def ping(ctx):
-    await ctx.send("Bot active ann kutta! ⚡")
+# --- 2. SLASH COMMAND: PING ---
+@bot.tree.command(name="ping", description="Check bot status")
+async def ping(interaction: discord.Interaction):
+    await interaction.response.send_message("Bot is active and running! ⚡")
 
-@bot.command()
-@commands.has_permissions(manage_messages=True)
-async def clear(ctx, amount: int):
-    await ctx.channel.purge(limit=amount + 1)
-    await ctx.send(f"Deleted {amount} messages!", delete_after=3)
+# --- 3. SLASH COMMAND: CLEAR ---
+@bot.tree.command(name="clear", description="Delete messages from the channel (Admin Only)")
+@discord.app_commands.checks.has_permissions(manage_messages=True)
+async def clear(interaction: discord.Interaction, amount: int):
+    await interaction.response.defer(ephemeral=True) # Prevents timeout
+    deleted = await interaction.channel.purge(limit=amount)
+    await interaction.followup.send(f"Deleted {len(deleted)} messages!", ephemeral=True)
 
-@bot.command()
-@commands.has_permissions(kick_members=True)
-async def kick(ctx, member: discord.Member, *, reason=None):
+# --- 4. SLASH COMMAND: KICK ---
+@bot.tree.command(name="kick", description="Kick a member from the server (Admin Only)")
+@discord.app_commands.checks.has_permissions(kick_members=True)
+async def kick(interaction: discord.Interaction, member: discord.Member, reason: str = None):
     await member.kick(reason=reason)
-    await ctx.send(f"{member.mention} has been kicked!")
+    await interaction.response.send_message(f"{member.mention} has been kicked! Reason: {reason}")
 
-@bot.command()
-@commands.has_permissions(ban_members=True)
-async def ban(ctx, member: discord.Member, *, reason=None):
+# --- 5. SLASH COMMAND: BAN ---
+@bot.tree.command(name="ban", description="Ban a member from the server (Admin Only)")
+@discord.app_commands.checks.has_permissions(ban_members=True)
+async def ban(interaction: discord.Interaction, member: discord.Member, reason: str = None):
     await member.ban(reason=reason)
-    await ctx.send(f"{member.mention} has been banned!")
+    await interaction.response.send_message(f"{member.mention} has been banned! Reason: {reason}")
 
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def announce(ctx, *, message_content):
-    # Deletes the command message you typed to keep it clean
-    await ctx.message.delete()
-    
-    # Creates the beautiful embed box
+# --- 6. SLASH COMMAND: ANNOUNCE ---
+@bot.tree.command(name="announce", description="Create a beautiful announcement box (Admin Only)")
+@discord.app_commands.checks.has_permissions(administrator=True)
+async def announce(interaction: discord.Interaction, message_content: str):
     embed = discord.Embed(
         title="📢 New Announcement!",
         description=message_content,
         color=0xff0000
     )
-    embed.set_footer(text=f"Announced by {ctx.author.name}")
-    
-    # Sends the embed directly to the current channel
-    await ctx.send(embed=embed)
-# --- 100% PERFECT TICKET SYSTEM WITH PERMISSIONS ---
+    embed.set_footer(text=f"Announced by {interaction.user.name}")
+    await interaction.channel.send(embed=embed)
+    await interaction.response.send_message("Announcement sent successfully!", ephemeral=True)
+
+
+# --- TICKET BUTTON SYSTEM ---
 
 class TicketCloseView(discord.ui.View):
     def __init__(self):
@@ -106,7 +121,6 @@ class TicketSetupView(discord.ui.View):
             await interaction.response.send_message(f"You already have an open ticket: {existing_channel.mention}", ephemeral=True)
             return
 
-        # ഈ ഭാഗത്ത് ബോട്ടിന് (guild.me) നമ്മൾ 'manage_channels=True' എന്ന പവർ ഉറപ്പിച്ചു നൽകിയിട്ടുണ്ട്:
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             member: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
@@ -124,16 +138,17 @@ class TicketSetupView(discord.ui.View):
         await ticket_channel.send(embed=embed, view=TicketCloseView())
         await interaction.response.send_message(f"Ticket created successfully! Go to {ticket_channel.mention}", ephemeral=True)
 
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def setup_ticket(ctx):
-    await ctx.message.delete()
+# --- 7. SLASH COMMAND: SETUP TICKET ---
+@bot.tree.command(name="setup_ticket", description="Setup the private support ticket box (Admin Only)")
+@discord.app_commands.checks.has_permissions(administrator=True)
+async def setup_ticket(interaction: discord.Interaction):
     embed = discord.Embed(
         title="📩 Support Ticket System",
         description="Click the button below to create a private support ticket and talk to the Admins.",
         color=0x5865F2
     )
-    await ctx.send(embed=embed, view=TicketSetupView())
+    await interaction.channel.send(embed=embed, view=TicketSetupView())
+    await interaction.response.send_message("Ticket setup system box deployed!", ephemeral=True)
 
 
 if __name__ == "__main__":
