@@ -6,13 +6,6 @@ from threading import Thread
 from flask import Flask
 import yt_dlp
 
-# വോയ്‌സ് എറർ ഒഴിവാക്കാൻ നിർബന്ധമായി ഡിസ്കോർഡിന്റെ ബിൽറ്റ്-ഇൻ ഓഡിയോ ലൈബ്രറി ലോഡ് ചെയ്യുന്നു
-if not discord.opus.is_loaded():
-    try:
-        discord.opus.load_opus('libopus.so.0')
-    except Exception:
-        pass
-
 app = Flask('')
 @app.route('/')
 def home():
@@ -33,7 +26,6 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Music configuration
 YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
@@ -64,7 +56,7 @@ async def on_member_join(member):
     if channel:
         await channel.send(f"Welcome {member.mention} to our server! 🎉")
 
-# --- 1. SLASH COMMAND: INFO ---
+# --- SLASH COMMAND: INFO ---
 @bot.tree.command(name="info", description="View all available bot commands")
 async def info(interaction: discord.Interaction):
     embed = discord.Embed(title="OLAM BOT", description="Server Management & Music Slash Commands:", color=0x00ff00)
@@ -80,12 +72,12 @@ async def info(interaction: discord.Interaction):
     embed.add_field(name="/stop", value="Stop music and disconnect", inline=False)
     await interaction.response.send_message(embed=embed)
 
-# --- 2. SLASH COMMAND: PING ---
+# --- SLASH COMMAND: PING ---
 @bot.tree.command(name="ping", description="Check bot status")
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message("Bot is active and running! ⚡")
 
-# --- 3. SLASH COMMAND: CLEAR ---
+# --- SLASH COMMAND: CLEAR ---
 @bot.tree.command(name="clear", description="Delete messages from the channel (Admin Only)")
 @discord.app_commands.checks.has_permissions(manage_messages=True)
 async def clear(interaction: discord.Interaction, amount: int):
@@ -93,35 +85,31 @@ async def clear(interaction: discord.Interaction, amount: int):
     deleted = await interaction.channel.purge(limit=amount)
     await interaction.followup.send(f"Deleted {len(deleted)} messages!", ephemeral=True)
 
-# --- 4. SLASH COMMAND: KICK ---
+# --- SLASH COMMAND: KICK ---
 @bot.tree.command(name="kick", description="Kick a member from the server (Admin Only)")
 @discord.app_commands.checks.has_permissions(kick_members=True)
 async def kick(interaction: discord.Interaction, member: discord.Member, reason: str = None):
     await member.kick(reason=reason)
     await interaction.response.send_message(f"{member.mention} has been kicked! Reason: {reason}")
 
-# --- 5. SLASH COMMAND: BAN ---
+# --- SLASH COMMAND: BAN ---
 @bot.tree.command(name="ban", description="Ban a member from the server (Admin Only)")
 @discord.app_commands.checks.has_permissions(ban_members=True)
 async def ban(interaction: discord.Interaction, member: discord.Member, reason: str = None):
     await member.ban(reason=reason)
     await interaction.response.send_message(f"{member.mention} has been banned! Reason: {reason}")
 
-# --- 6. SLASH COMMAND: ANNOUNCE ---
+# --- SLASH COMMAND: ANNOUNCE ---
 @bot.tree.command(name="announce", description="Create a beautiful announcement box (Admin Only)")
 @discord.app_commands.checks.has_permissions(administrator=True)
 async def announce(interaction: discord.Interaction, message_content: str):
-    embed = discord.Embed(
-        title="📢 New Announcement!",
-        description=message_content,
-        color=0xff0000
-    )
+    embed = discord.Embed(title="📢 New Announcement!", description=message_content, color=0xff0000)
     embed.set_footer(text=f"Announced by {interaction.user.name}")
     await interaction.response.send_message("Announcement sent successfully!", ephemeral=True)
     await interaction.channel.send(embed=embed)
 
-# --- 7. SLASH COMMAND: PLAY MUSIC ---
-@bot.tree.command(name="play", description="Play a song by its name from YouTube")
+# --- SLASH COMMAND: PLAY MUSIC ---
+@bot.tree.command(name="play", description="Play a song from YouTube")
 async def play(interaction: discord.Interaction, song_name: str):
     await interaction.response.defer()
     
@@ -133,16 +121,7 @@ async def play(interaction: discord.Interaction, song_name: str):
     voice_client = discord.utils.get(bot.voice_clients, guild=interaction.guild)
 
     if not voice_client:
-        try:
-            voice_client = await voice_channel.connect()
-        except Exception as e:
-            # ഫോഴ്സ് ലോഡ് ട്രൈ ചെയ്യുന്നു
-            try:
-                discord.opus.load_opus('libopus.so.0')
-                voice_client = await voice_channel.connect()
-            except Exception:
-                await interaction.followup.send(f"Voice Connection Error: {e}. Please ensure voice settings are correct.")
-                return
+        voice_client = await voice_channel.connect()
     elif voice_client.channel != voice_channel:
         await voice_client.move_to(voice_channel)
 
@@ -159,13 +138,12 @@ async def play(interaction: discord.Interaction, song_name: str):
 
         source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
         voice_client.play(source)
-        
         await interaction.followup.send(f"🎵 Now playing: **{title}**")
     except Exception as e:
-        await interaction.followup.send(f"Audio stream error. Please try running the command again.")
+        await interaction.followup.send("Error processing audio. Please try again.")
 
-# --- 8. SLASH COMMAND: STOP MUSIC ---
-@bot.tree.command(name="stop", description="Stop music and disconnect from the voice channel")
+# --- SLASH COMMAND: STOP MUSIC ---
+@bot.tree.command(name="stop", description="Stop music and disconnect")
 async def stop(interaction: discord.Interaction):
     voice_client = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     if voice_client and voice_client.is_connected():
@@ -174,8 +152,8 @@ async def stop(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("I am not connected to any voice channel!", ephemeral=True)
 
-# --- 9. SLASH COMMAND: SKIP MUSIC ---
-@bot.tree.command(name="skip", description="Skip the current playing song")
+# --- SLASH COMMAND: SKIP MUSIC ---
+@bot.tree.command(name="skip", description="Skip the current song")
 async def skip(interaction: discord.Interaction):
     voice_client = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     if voice_client and voice_client.is_playing():
@@ -184,61 +162,41 @@ async def skip(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("No music is currently playing!", ephemeral=True)
 
-
 # --- TICKET BUTTON SYSTEM ---
-
 class TicketCloseView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-
     @discord.ui.button(label="🔒 Close Ticket", style=discord.ButtonStyle.danger, custom_id="close_ticket_btn")
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("Closing and deleting this ticket right now...", ephemeral=False)
         await interaction.channel.delete()
 
 class TicketSetupView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-
     @discord.ui.button(label="📩 Create Ticket", style=discord.ButtonStyle.green, custom_id="create_ticket_btn")
     async def create_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
         guild = interaction.guild
         member = interaction.user
-        
         existing_channel = discord.utils.get(guild.channels, name=f"ticket-{member.name.lower()}")
         if existing_channel:
             await interaction.response.send_message(f"You already have an open ticket: {existing_channel.mention}", ephemeral=True)
             return
-
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             member: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
             guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_channels=True)
         }
-
         ticket_channel = await guild.create_text_channel(name=f"ticket-{member.name}", overwrites=overwrites)
-        
-        embed = discord.Embed(
-            title="🎫 Ticket Created!",
-            description=f"Hello {member.mention},\nOur Support Team/Admins will assist you shortly. Please state your issue here.\n\nClick the button below to **Close** this ticket.",
-            color=0x00ff00
-        )
-        
+        embed = discord.Embed(title="🎫 Ticket Created!", description=f"Hello {member.mention},\nOur Support Team will assist you shortly.", color=0x00ff00)
         await ticket_channel.send(embed=embed, view=TicketCloseView())
-        await interaction.response.send_message(f"Ticket created successfully! Go to {ticket_channel.mention}", ephemeral=True)
+        await interaction.response.send_message(f"Ticket created! Go to {ticket_channel.mention}", ephemeral=True)
 
-# --- 10. SLASH COMMAND: SETUP TICKET ---
-@bot.tree.command(name="setup_ticket", description="Setup the private support ticket box (Admin Only)")
+@bot.tree.command(name="setup_ticket", description="Setup the ticket box (Admin Only)")
 @discord.app_commands.checks.has_permissions(administrator=True)
 async def setup_ticket(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="📩 Support Ticket System",
-        description="Click the button below to create a private support ticket and talk to the Admins.",
-        color=0x5865F2
-    )
+    embed = discord.Embed(title="📩 Support Ticket System", description="Click the button below to create a private support ticket.", color=0x5865F2)
     await interaction.response.send_message("Deploying ticket system...", ephemeral=True)
     await interaction.channel.send(embed=embed, view=TicketSetupView())
-
 
 if __name__ == "__main__":
     keep_alive()
