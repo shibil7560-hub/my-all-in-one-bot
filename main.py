@@ -6,6 +6,13 @@ from threading import Thread
 from flask import Flask
 import yt_dlp
 
+# വോയ്‌സ് എറർ ഒഴിവാക്കാൻ നിർബന്ധമായി ഡിസ്കോർഡിന്റെ ബിൽറ്റ്-ഇൻ ഓഡിയോ ലൈബ്രറി ലോഡ് ചെയ്യുന്നു
+if not discord.opus.is_loaded():
+    try:
+        discord.opus.load_opus('libopus.so.0')
+    except Exception:
+        pass
+
 app = Flask('')
 @app.route('/')
 def home():
@@ -26,7 +33,7 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Music configuration (Optimized for Render Free Tier)
+# Music configuration
 YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
@@ -129,8 +136,13 @@ async def play(interaction: discord.Interaction, song_name: str):
         try:
             voice_client = await voice_channel.connect()
         except Exception as e:
-            await interaction.followup.send(f"Failed to connect to Voice Channel: {e}")
-            return
+            # ഫോഴ്സ് ലോഡ് ട്രൈ ചെയ്യുന്നു
+            try:
+                discord.opus.load_opus('libopus.so.0')
+                voice_client = await voice_channel.connect()
+            except Exception:
+                await interaction.followup.send(f"Voice Connection Error: {e}. Please ensure voice settings are correct.")
+                return
     elif voice_client.channel != voice_channel:
         await voice_client.move_to(voice_channel)
 
@@ -145,13 +157,12 @@ async def play(interaction: discord.Interaction, song_name: str):
         if voice_client.is_playing():
             voice_client.stop()
 
-        # Render-ൽ എറർ വരാതിരിക്കാൻ ബിൽറ്റ്-ഇൻ എക്സിക്യൂട്ടബിൾ ലൊക്കേഷൻ റൂട്ട് സെറ്റ് ചെയ്യുന്നു
-        source = discord.FFmpegPCMAudio(url, executable="ffmpeg", **FFMPEG_OPTIONS)
+        source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
         voice_client.play(source)
         
         await interaction.followup.send(f"🎵 Now playing: **{title}**")
     except Exception as e:
-        await interaction.followup.send(f"Could not play audio. Please ensure Render environment supports FFmpeg or try again shortly.")
+        await interaction.followup.send(f"Audio stream error. Please try running the command again.")
 
 # --- 8. SLASH COMMAND: STOP MUSIC ---
 @bot.tree.command(name="stop", description="Stop music and disconnect from the voice channel")
