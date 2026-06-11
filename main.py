@@ -18,7 +18,7 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# ഡിസ്കോർഡ് ഇന്റന്റുകൾ
+# ഡിസ്കോർഡ് ഇന്റന്റുകൾ (നിർബന്ധമായും members ഇന്റന്റ് ട്രൂ ആയിരിക്കണം)
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -28,22 +28,36 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    # ബോട്ടിന്റെ സ്റ്റാറ്റസ് മാറ്റുന്നു
     await bot.change_presence(activity=discord.Game(name="Managing Server & Tickets! 👑"))
     print(f'{bot.user.name} Is Ready and Loaded!')
     try:
-        # Slash കമാൻഡുകൾ ഡിസ്കോർഡിലേക്ക് സിങ്ക് ചെയ്യുന്നു
         synced = await bot.tree.sync()
         print(f"Synced {len(synced)} slash command(s) successfully!")
     except Exception as e:
         print(f"Failed to sync commands: {e}")
 
-# സെർവറിലേക്ക് പുതിയ ആൾക്കാർ വരുമ്പോൾ ഉള്ള വെൽക്കം മെസ്സേജ്
+
+# --- 🔥 കിടിലൻ വെൽക്കം സിസ്റ്റം (WELCOME BOT EVENT) ---
 @bot.event
 async def on_member_join(member):
+    # നിന്റെ സെർവറിലെ ചാനലിന്റെ പേര് 'welcome' എന്നാണെന്ന് ഉറപ്പുവരുത്തുക
     channel = discord.utils.get(member.guild.text_channels, name="welcome")
+    
     if channel:
-        await channel.send(f"Welcome {member.mention} to our server! 🎉 Make sure to read the rules.")
+        # മനോഹരമായ ഒരു എംബെഡ് ബോക്സ് വെൽക്കം മെസ്സേജ്
+        embed = discord.Embed(
+            title="👋 Welcome to the Server!",
+            description=f"Hey {member.mention}, welcome to **{member.guild.name}**! 🎉\n\nWe are extremely happy to have you here. Make sure to check out the rules and have a great time!",
+            color=0x00ff00  # പച്ച കളർ
+        )
+        
+        # ജോയിൻ ചെയ്ത ആളുടെ പ്രൊഫൈൽ പിക്ചറും സെർവറിലെ ആകെ മെമ്പർമാരുടെ എണ്ണവും കാണിക്കാൻ
+        embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
+        embed.set_footer(text=f"Member #{len(member.guild.members)}")
+        
+        # ചാനലിലേക്ക് മെസ്സേജ് അയക്കുന്നു
+        await channel.send(f"Welcome {member.mention}! ✨", embed=embed)
+
 
 # --- 1. SLASH COMMAND: INFO ---
 @bot.tree.command(name="info", description="View all available bot commands")
