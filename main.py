@@ -26,12 +26,13 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Music configuration
+# Music configuration (Optimized for Render Free Tier)
 YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'noplaylist': True,
     'default_search': 'ytsearch',
     'quiet': True,
+    'no_warnings': True,
 }
 FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
@@ -125,7 +126,11 @@ async def play(interaction: discord.Interaction, song_name: str):
     voice_client = discord.utils.get(bot.voice_clients, guild=interaction.guild)
 
     if not voice_client:
-        voice_client = await voice_channel.connect()
+        try:
+            voice_client = await voice_channel.connect()
+        except Exception as e:
+            await interaction.followup.send(f"Failed to connect to Voice Channel: {e}")
+            return
     elif voice_client.channel != voice_channel:
         await voice_client.move_to(voice_channel)
 
@@ -140,12 +145,13 @@ async def play(interaction: discord.Interaction, song_name: str):
         if voice_client.is_playing():
             voice_client.stop()
 
-        source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
+        # Render-ൽ എറർ വരാതിരിക്കാൻ ബിൽറ്റ്-ഇൻ എക്സിക്യൂട്ടബിൾ ലൊക്കേഷൻ റൂട്ട് സെറ്റ് ചെയ്യുന്നു
+        source = discord.FFmpegPCMAudio(url, executable="ffmpeg", **FFMPEG_OPTIONS)
         voice_client.play(source)
         
         await interaction.followup.send(f"🎵 Now playing: **{title}**")
     except Exception as e:
-        await interaction.followup.send(f"An error occurred: {e}")
+        await interaction.followup.send(f"Could not play audio. Please ensure Render environment supports FFmpeg or try again shortly.")
 
 # --- 8. SLASH COMMAND: STOP MUSIC ---
 @bot.tree.command(name="stop", description="Stop music and disconnect from the voice channel")
