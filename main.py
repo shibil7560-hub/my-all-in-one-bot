@@ -1,8 +1,10 @@
 import discord
 import os
+import asyncio
 from discord.ext import commands
 from threading import Thread
 from flask import Flask
+import yt_dlp
 
 app = Flask('')
 @app.route('/')
@@ -20,12 +22,27 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 intents.guilds = True
+intents.voice_states = True # വോയ്‌സ് ചാനലിന് ഇത് നിർബന്ധമാണ്
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# Music configuration
+YTDL_OPTIONS = {
+    'format': 'bestaudio/best',
+    'noplaylist': True,
+    'default_search': 'ytsearch',
+    'quiet': True,
+}
+FFMPEG_OPTIONS = {
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    'options': '-vn',
+}
+
+ytdl = yt_dlp.YoutubeDL(YTDL_OPTIONS)
+
 @bot.event
 async def on_ready():
-    await bot.change_presence(activity=discord.Game(name="Managing Server! 👑"))
+    await bot.change_presence(activity=discord.Game(name="Managing & Music! 👑🎵"))
     print(f'{bot.user.name} is ready!')
     try:
         synced = await bot.tree.sync()
@@ -39,58 +56,60 @@ async def on_member_join(member):
     if channel:
         await channel.send(f"Welcome {member.mention} to our server! 🎉")
 
-# --- 1. SLASH COMMAND: INFO ---
-@bot.tree.command(name="info", description="View all available bot commands")
-async def info(interaction: discord.Interaction):
-    embed = discord.Embed(title="All in One Bot", description="Server Management Bot Slash Commands:", color=0x00ff00)
-    embed.add_field(name="/info", value="Check all available commands", inline=False)
-    embed.add_field(name="/ping", value="Check if the bot is online", inline=False)
-    embed.add_field(name="/clear [amount]", value="Delete multiple messages (Admin Only)", inline=False)
-    embed.add_field(name="/kick [user] [reason]", value="Kick a user (Admin Only)", inline=False)
-    embed.add_field(name="/ban [user] [reason]", value="Ban a user (Admin Only)", inline=False)
-    embed.add_field(name="/announce [message]", value="Create a beautiful announcement box (Admin Only)", inline=False)
-    embed.add_field(name="/setup_ticket", value="Setup the private support ticket system (Admin Only)", inline=False)
-    await interaction.response.send_message(embed=embed)
+# --- MUSIC SLASH COMMANDS ---
 
-# --- 2. SLASH COMMAND: PING ---
-@bot.tree.command(name="ping", description="Check bot status")
-async def ping(interaction: discord.Interaction):
-    await interaction.response.send_message("Bot is active and running! ⚡")
+@bot.tree.command(name="play", description="Play a song by its name from YouTube")
+async def play(interaction: discord.Interaction, song_name: str):
+    await interaction.response.defer() # ബോട്ട് ഹാങ്ങ് ആകാതിരിക്കാൻ
+    
+    if not interaction.user.voice:
+        await interaction.followup.send("You need to be in a voice channel to play music!", ephemeral=True)
+        return
 
-# --- 3. SLASH COMMAND: CLEAR ---
-@bot.tree.command(name="clear", description="Delete messages from the channel (Admin Only)")
-@discord.app_commands.checks.has_permissions(manage_messages=True)
-async def clear(interaction: discord.Interaction, amount: int):
-    await interaction.response.defer(ephemeral=True)
-    deleted = await interaction.channel.purge(limit=amount)
-    await interaction.followup.send(f"Deleted {len(deleted)} messages!", ephemeral=True)
+    voice_channel = interaction.user.voice.channel
+    voice_client = discord.utils.get(bot.voice_clients, guild=interaction.guild)
 
-# --- 4. SLASH COMMAND: KICK ---
-@bot.tree.command(name="kick", description="Kick a member from the server (Admin Only)")
-@discord.app_commands.checks.has_permissions(kick_members=True)
-async def kick(interaction: discord.Interaction, member: discord.Member, reason: str = None):
-    await member.kick(reason=reason)
-    await interaction.response.send_message(f"{member.mention} has been kicked! Reason: {reason}")
+    if not voice_client:
+        voice_client = await voice_channel.connect()
+    elif voice_client.channel != voice_channel:
+        await voice_client.move_to(voice_channel)
 
-# --- 5. SLASH COMMAND: BAN ---
-@bot.tree.command(name="ban", description="Ban a member from the server (Admin Only)")
-@discord.app_commands.checks.has_permissions(ban_members=True)
-async def ban(interaction: discord.Interaction, member: discord.Member, reason: str = None):
-    await member.ban(reason=reason)
-    await interaction.response.send_message(f"{member.mention} has been banned! Reason: {reason}")
+    try:
+        # പേര് വെച്ച് യൂട്യൂബിൽ തിരയുന്നു
+        info = ytdl.extract_info(song_name, download=False)
+        if 'entries' in info:
+            info = info['entries'][0]
+        
+        url = info['url']
+        title = info['title']
+        
+        if voice_client.is_playing():
+            voice_client.stop()
 
-# --- 6. SLASH COMMAND: ANNOUNCE ---
-@bot.tree.command(name="announce", description="Create a beautiful announcement box (Admin Only)")
-@discord.app_commands.checks.has_permissions(administrator=True)
-async def announce(interaction: discord.Interaction, message_content: str):
-    embed = discord.Embed(
-        title="📢 New Announcement!",
-        description=message_content,
-        color=0xff0000
-    )
-    embed.set_footer(text=f"Announced by {interaction.user.name}")
-    await interaction.response.send_message("Announcement sent successfully!", ephemeral=True)
-    await interaction.channel.send(embed=embed)
+        source = discord.FFmpegPCMAudio(url, **FFMPEG_OPTIONS)
+        voice_client.play(source)
+        
+        await interaction.followup.send(f"🎵 Now playing: **{title}**")
+    except Exception as e:
+        await interaction.followup.send(f"An error occurred: {e}")
+
+@bot.tree.command(name="stop", description="Stop music and disconnect from the voice channel")
+async def stop(interaction: discord.Interaction):
+    voice_client = discord.utils.get(bot.voice_clients, guild=interaction.guild)
+    if voice_client and voice_client.is_connected():
+        await voice_client.disconnect()
+        await interaction.response.send_message("Stopped the music and disconnected! 👋")
+    else:
+        await interaction.response.send_message("I am not connected to any voice channel!", ephemeral=True)
+
+@bot.tree.command(name="skip", description="Skip the current playing song")
+async def skip(interaction: discord.Interaction):
+    voice_client = discord.utils.get(bot.voice_clients, guild=interaction.guild)
+    if voice_client and voice_client.is_playing():
+        voice_client.stop()
+        await interaction.response.send_message("Skipped the song! ⏭️")
+    else:
+        await interaction.response.send_message("No music is currently playing!", ephemeral=True)
 
 
 # --- TICKET BUTTON SYSTEM ---
@@ -135,7 +154,6 @@ class TicketSetupView(discord.ui.View):
         await ticket_channel.send(embed=embed, view=TicketCloseView())
         await interaction.response.send_message(f"Ticket created successfully! Go to {ticket_channel.mention}", ephemeral=True)
 
-# --- 7. SLASH COMMAND: SETUP TICKET ---
 @bot.tree.command(name="setup_ticket", description="Setup the private support ticket box (Admin Only)")
 @discord.app_commands.checks.has_permissions(administrator=True)
 async def setup_ticket(interaction: discord.Interaction):
