@@ -21,15 +21,12 @@ intents.message_content = True
 intents.members = True
 intents.guilds = True
 
-# We keep command_prefix just as a backup, but we will use Slash Commands
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
     await bot.change_presence(activity=discord.Game(name="Managing Server! 👑"))
     print(f'{bot.user.name} is ready!')
-    
-    # CRITICAL: This connects and syncs your Slash Commands with Discord
     try:
         synced = await bot.tree.sync()
         print(f"Synced {len(synced)} command(s) successfully!")
@@ -64,7 +61,7 @@ async def ping(interaction: discord.Interaction):
 @bot.tree.command(name="clear", description="Delete messages from the channel (Admin Only)")
 @discord.app_commands.checks.has_permissions(manage_messages=True)
 async def clear(interaction: discord.Interaction, amount: int):
-    await interaction.response.defer(ephemeral=True) # Prevents timeout
+    await interaction.response.defer(ephemeral=True)
     deleted = await interaction.channel.purge(limit=amount)
     await interaction.followup.send(f"Deleted {len(deleted)} messages!", ephemeral=True)
 
@@ -92,8 +89,8 @@ async def announce(interaction: discord.Interaction, message_content: str):
         color=0xff0000
     )
     embed.set_footer(text=f"Announced by {interaction.user.name}")
-    await interaction.channel.send(embed=embed)
     await interaction.response.send_message("Announcement sent successfully!", ephemeral=True)
+    await interaction.channel.send(embed=embed)
 
 
 # --- TICKET BUTTON SYSTEM ---
@@ -147,8 +144,8 @@ async def setup_ticket(interaction: discord.Interaction):
         description="Click the button below to create a private support ticket and talk to the Admins.",
         color=0x5865F2
     )
+    await interaction.response.send_message("Deploying ticket system...", ephemeral=True)
     await interaction.channel.send(embed=embed, view=TicketSetupView())
-    await interaction.response.send_message("Ticket setup system box deployed!", ephemeral=True)
 
 
 if __name__ == "__main__":
