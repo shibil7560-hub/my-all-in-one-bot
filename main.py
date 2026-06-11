@@ -88,11 +88,10 @@ class TicketCloseView(discord.ui.View):
         super().__init__(timeout=None)
 
     @discord.ui.button(label="🔒 Close Ticket", style=discord.ButtonStyle.danger, custom_id="close_ticket_btn")
-    async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("This ticket will be deleted in 5 seconds...", ephemeral=False)
-        # Wait for 5 seconds and then delete the channel
-        await asyncio.sleep(5)
+    async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button)
+        await interaction.response.send_message("Closing and deleting this ticket right now...", ephemeral=False)
         await interaction.channel.delete()
+
 
 class TicketSetupView(discord.ui.View):
     def __init__(self):
