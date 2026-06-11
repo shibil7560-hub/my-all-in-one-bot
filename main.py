@@ -45,7 +45,7 @@ async def info(ctx):
 
 @bot.command()
 async def ping(ctx):
-    await ctx.send("Bot is active and running! ⚡")
+    await ctx.send("Bot active ann kutta! ⚡")
 
 @bot.command()
 @commands.has_permissions(manage_messages=True)
@@ -81,17 +81,16 @@ async def announce(ctx, *, message_content):
     
     # Sends the embed directly to the current channel
     await ctx.send(embed=embed)
-# --- UPDATED TICKET SYSTEM WITH CLOSE BUTTON ---
+# --- 100% PERFECT TICKET SYSTEM WITH PERMISSIONS ---
 
 class TicketCloseView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
     @discord.ui.button(label="🔒 Close Ticket", style=discord.ButtonStyle.danger, custom_id="close_ticket_btn")
-    async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button)
+    async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message("Closing and deleting this ticket right now...", ephemeral=False)
         await interaction.channel.delete()
-
 
 class TicketSetupView(discord.ui.View):
     def __init__(self):
@@ -107,11 +106,12 @@ class TicketSetupView(discord.ui.View):
             await interaction.response.send_message(f"You already have an open ticket: {existing_channel.mention}", ephemeral=True)
             return
 
-               overwrites = {
+        # ഈ ഭാഗത്ത് ബോട്ടിന് (guild.me) നമ്മൾ 'manage_channels=True' എന്ന പവർ ഉറപ്പിച്ചു നൽകിയിട്ടുണ്ട്:
+        overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             member: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
             guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_channels=True)
-               }
+        }
 
         ticket_channel = await guild.create_text_channel(name=f"ticket-{member.name}", overwrites=overwrites)
         
@@ -121,7 +121,6 @@ class TicketSetupView(discord.ui.View):
             color=0x00ff00
         )
         
-        # Here we attach the Close Button to the welcome message inside the new ticket channel
         await ticket_channel.send(embed=embed, view=TicketCloseView())
         await interaction.response.send_message(f"Ticket created successfully! Go to {ticket_channel.mention}", ephemeral=True)
 
@@ -135,6 +134,7 @@ async def setup_ticket(ctx):
         color=0x5865F2
     )
     await ctx.send(embed=embed, view=TicketSetupView())
+
 
 if __name__ == "__main__":
     keep_alive()
